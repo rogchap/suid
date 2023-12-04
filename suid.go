@@ -2,57 +2,68 @@ package suid
 
 import (
 	"crypto/rand"
-	"fmt"
 	"math"
 	"math/big"
 	"strings"
 )
 
-type Suid struct {
+// Suid represent a short unique identifier generator.
+type SUID struct {
 	opts options
 
 	dict    []rune
 	counter int
 }
 
-func New(opt ...Option) *Suid {
+// New creates a new short unique identifier generator, with various options.
+func New(opt ...Option) *SUID {
 	opts := defaultOptions
 	for _, o := range opt {
 		o.apply(&opts)
 	}
-	s := &Suid{
+
+	s := &SUID{
 		opts: opts,
 	}
-
 	s.setDict(dictByName(s.opts.namedDict))
-
-	fmt.Printf("%+q\n", s.dict)
+	s.counter = s.opts.counter
 
 	return s
 }
 
-func (s *Suid) Rnd() (string, error) {
+// Rnd generates a random unique identifier.
+// The ID can be configured by setting various options on the SUID generator.
+// For example the dictionary/character set, or the generated length of the ID
+// (defaults to lenght 6)
+func (s *SUID) Rnd() string {
 	var id strings.Builder
 
 	dictLen := len(s.dict)
-	if dictLen <= 0 {
-		panic("suid: dict is <= 0")
+	if dictLen <= 1 {
+		panic("suid: dict is <= 1")
 	}
 
 	for i := 0; i < s.opts.length; i++ {
-		n, err := rand.Int(rand.Reader, big.NewInt(int64(dictLen-1)))
+
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(dictLen)))
 		if err != nil {
-			return "", err
+			// The error is EOF only if no bytes were read, or ErrUnexpectedEOF
+			// happens after reading some but not all the bytes. We already panic
+			// if there is a dict <= 1, so we should always be able to generate a rand.Int.
+			panic(err)
 		}
-		if _, err := id.WriteRune(s.dict[n.Int64()]); err != nil {
-			return "", err
-		}
+		// Euclidean modulus
+		idx := n.Mod(n, big.NewInt(int64(dictLen)))
+		id.WriteRune(s.dict[idx.Int64()]) // always returns a nil error, so ignoring
 	}
 
-	return id.String(), nil
+	return id.String()
 }
 
-func (s *Suid) Seq() string {
+// Seq generates an ID based on the set dictionanry/character set and a counter,
+// which increments on every Seq ID generated.
+// You can set the starting counter in the options of the Suid generator.
+func (s *SUID) Seq() string {
 	var id strings.Builder
 
 	dictLen := len(s.dict)
@@ -68,7 +79,7 @@ func (s *Suid) Seq() string {
 	return id.String()
 }
 
-func (s *Suid) setDict(d dict) {
+func (s *SUID) setDict(d dict) {
 	var dict []rune
 	for _, rng := range d {
 		for i := rng[0]; i <= rng[1]; i++ {

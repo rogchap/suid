@@ -16,10 +16,10 @@ const (
 type dict [][2]rune
 
 func dictByName(d namedDict) dict {
-	digits := [2]rune{48, 57}
-	lower := [2]rune{97, 122}
-	upper := [2]rune{65, 90}
-	hex := [2]rune{97, 102}
+	digits := [2]rune{'0', '9'}
+	lower := [2]rune{'a', 'z'}
+	upper := [2]rune{'A', 'Z'}
+	hex := [2]rune{'a', 'f'}
 
 	switch d {
 	default:
